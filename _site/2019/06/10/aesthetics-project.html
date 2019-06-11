@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="stylesheet" href="/assets/css/style.css?v=4927a7f2a6e9bdcc08e350cffb0961e1600d2689">
+    <link rel="stylesheet" type="text/css" href="/assets/css/print.css" media="print">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+<!-- Begin Jekyll SEO tag v2.5.0 -->
+<title>Beautiful or not? | LauraRuusmann.github.io</title>
+<meta name="generator" content="Jekyll v3.8.5" />
+<meta property="og:title" content="Beautiful or not?" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="To begin with, I must say that the results of this project are not that impressive. Nevertheless there are some interesting approaches in this blog post that are fun to implement. For me, at least." />
+<meta property="og:description" content="To begin with, I must say that the results of this project are not that impressive. Nevertheless there are some interesting approaches in this blog post that are fun to implement. For me, at least." />
+<link rel="canonical" href="http://localhost:4000/2019/06/10/aesthetics-project.html" />
+<meta property="og:url" content="http://localhost:4000/2019/06/10/aesthetics-project.html" />
+<meta property="og:site_name" content="LauraRuusmann.github.io" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2019-06-10T00:00:00+03:00" />
+<script type="application/ld+json">
+{"@type":"BlogPosting","url":"http://localhost:4000/2019/06/10/aesthetics-project.html","headline":"Beautiful or not?","dateModified":"2019-06-10T00:00:00+03:00","datePublished":"2019-06-10T00:00:00+03:00","mainEntityOfPage":{"@type":"WebPage","@id":"http://localhost:4000/2019/06/10/aesthetics-project.html"},"description":"To begin with, I must say that the results of this project are not that impressive. Nevertheless there are some interesting approaches in this blog post that are fun to implement. For me, at least.","@context":"http://schema.org"}</script>
+<!-- End Jekyll SEO tag -->
+
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>Beautiful or not?</h1>
+          <h2>Online journal</h2>
+        </header>
+        <section id="downloads" class="clearfix">
+          
+	
+        </section>
+        <hr>
+        <section id="main_content">
+          <!---<small>10 June 2019</small>-->
+<small>10 June 2019</small>
+<p><a href="/">← return home</a></p>
+
+
+<p>To begin with, I must say that the results of this project are not that impressive. Nevertheless there are some interesting approaches in this blog post that are fun to implement. For me, at least.</p>
+
+<h2 id="purpose-of-the-project">Purpose of the project</h2>
+
+<p>The goal of this project was measuring image aesthetics with deep learning. I started out with replicating a research paper and afterwards also implemented some simpler solutions as a sanity check. As I work as a data scientist in a company that offers machine learning solutions, the main motivation behind doing this research is to use knowledge from it in a recommendation system for some service that relies on user-generated image base and where showing beautiful photos of items increase the number of transactions.</p>
+
+<p>I aimed to measure the aesthetics of images, mainly by scoring how aesthetically pleasing the image is.</p>
+
+<h2 id="introduction-to-the-ava-dataset">Introduction to the AVA Dataset</h2>
+
+<p>Dataset used for this was Aesthetic Visual Analysis (AVA) dataset [<sup id="fnref:fn1"><a href="#fn:fn1" class="footnote">1</a></sup>] with ~250 000 images, which additionally contains semantic labels in more than 60 categories, aesthetic scores for each image, and information about the styles of photography of the images. The subset of data that I used, contained only images and their overall ratings. The smallest rating is 1, and the largest is 10. The ratings are provided as a distribution of ratings, describing the amount of times an image received each rating.</p>
+
+<h2 id="the-architecture-of-neural-network">The architecture of neural network</h2>
+
+<p>As I was highly inspired by the NIMA research [<sup id="fnref:fn2"><a href="#fn:fn2" class="footnote">2</a></sup>] paper, I loosely mimicked their network architecture. They used a convolutional neural network previously trained on ImageNet dataset, from where th top layer had been removed and replaced with a new fully connected layer on top of it. I tried out multiple versions of prediction layers, including the one used in the research paper. I freezed the imported model weights and only trained the weights that I had introduced to the model. I added a global average pooling layer between base model and the prediction layer. I used Adam optimizer.</p>
+
+<p>Above described architecture was used in all the tasks described below, with changes to hyperparameters, losses and metrics, and to the number of nodes in the last fully connected layer.</p>
+
+<p>To be more specific - the MobileNetV2 pretrained network was used to initialize the model weights. For implementation I used Python3.6 and TensorFlow2.</p>
+
+<h3 id="data-preprocessing">Data preprocessing</h3>
+
+<p>The images were preprocessed to match the input to the MobileNetV2 network, thus the RGB channels were normalized to [-1, 1] range. They were also rescaled into shape 256*256 and afterwards augmented by cropping a 224*224 piece of it, in order to avoid overfitting to the frames that some photos had. Here is an example of an image and after preprocessing.</p>
+
+<p><img src="/assets/original.png" alt="Original photo" width="40%" />
+<img src="/assets/processed.png" alt="Processed photo" /></p>
+
+<h2 id="techniques-used-in-this-project">Techniques used in this project</h2>
+<h3 id="1-multiclass-task-with-emd-loss">1. Multiclass task with EMD loss</h3>
+<h4 id="nima-paper-and-method-description">NIMA paper and method description</h4>
+
+<p><img src="/assets/architecture.png" alt="Model architecture in NIMA paper" /></p>
+
+<p>As mentioned above, I have taken some ideas from the NIMA research paper. In that paper, they treated this problem as a classification task where each rating is a separate class and the important part is, that these classes can be ordered. They argued, that formalizing the problem in such way, will yield better results so I decided to test it out. They used Earth Mover’s Distance (EMD) as their loss function. It is a loss function that penalizes the distance of misclassification. To do this, the sum of all predictions (mass of distributions) has to be 1, thus they used softmax activation to achieve it.</p>
+
+<h4 id="earth-movers-distance-loss-function">Earth Mover’s Distance loss function</h4>
+
+<p><img src="/assets/emd.png" alt="EMD loss" width="70%" /></p>
+
+<p>The figure above shows the EMD loss, where CDF signifies cumulative distribution function as sums of consecutive <em>p</em>-s and <em>r=2</em>. The main motivation behind predicting the whole distribution instead of the mean value is that the variance should give additional information about the beauty of the photo. Some images are conventionally beautiful and for some images, people don’t really agree on its beauty - these images have a higher variance in ratings.</p>
+
+<h4 id="results">Results</h4>
+
+<p>I had hard time getting the model to converge properly. Looking at the loss history of the model on the image below we can see that the mean squared error on the validation set is not above baseline. It means that the model isn’t really better than just using simple methods. The baseline that I have used in this is the probability distribution of average ratings. For each rating I found the average and then divided it by the sum of averages. Then I found the MSE between that and the predicted distribution. The model was trained on 2000 images.</p>
+
+<p><img src="/assets/emdloss.png" alt="Loss history" width="70%" /></p>
+
+<p>Adding more data made the validation error more unstable. Decreasing the learning rate made the loss decrease more monotonously, however I could not beat predicting the baseline on validation data.</p>
+
+<p>An example of an image, its true probability distribution and predicted distribution.</p>
+
+<p><img src="/assets/drop.png" alt="Example" width="40%" /></p>
+
+<p>True mean +- variance : 4.767 +- 1.374</p>
+
+<p>Predicted mean +- variance : 5.428 +- 0.612</p>
+
+<style>
+.tablelines table, .tablelines td, .tablelines th {
+        border: 1px solid black;
+        }
+</style>
+
+<table class="tablelines">
+  <thead>
+    <tr>
+      <th> </th>
+      <th>1</th>
+      <th>2</th>
+      <th>3</th>
+      <th>4</th>
+      <th>5</th>
+      <th>6</th>
+      <th>7</th>
+      <th>8</th>
+      <th>9</th>
+      <th>10</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>number of ratings</td>
+      <td>2</td>
+      <td>8</td>
+      <td>15</td>
+      <td>54</td>
+      <td>70</td>
+      <td>30</td>
+      <td>3</td>
+      <td>10</td>
+      <td>0</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <td>true probability distribution</td>
+      <td>0.01</td>
+      <td>0.041</td>
+      <td>0.078</td>
+      <td>0.280</td>
+      <td>0.363</td>
+      <td>0.155</td>
+      <td>0.016</td>
+      <td>0.052</td>
+      <td>0.0</td>
+      <td>0.005</td>
+    </tr>
+    <tr>
+      <td>predicted distribution</td>
+      <td>0.00</td>
+      <td>0.001</td>
+      <td>0.007</td>
+      <td>0.017</td>
+      <td>0.534</td>
+      <td>0.420</td>
+      <td>0.021</td>
+      <td>0.000</td>
+      <td>0.0</td>
+      <td>0.000</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="2-regressing-the-average-rating">2. Regressing the average rating</h3>
+
+<p>At one point I felt like I wanted to do something more straightforward, so I dropped the fancy loss function. Instead, I averaged the ratings and then scaled them to [0,1] range as labels and then used sigmoid activation. I used one label for each image - the average rating and mean squared error as loss and metric.</p>
+
+<p>Following is the distribution of average ratings. We can see that the distribution is normal and centered around a bit over 5.</p>
+
+<p><img src="/assets/histogram_of_ratings_train_150000.png" alt="Average rating distribution" width="60%" /></p>
+
+<p>At first the results were obviously bad. The model kept predicting very low probabilites for each image. As can be seen from the figure below, model gave very left-skewed predictions. In the original distribution of average ratings, they were in a normal distribution with 5 (or 0.5 in [0,1] scale) being the average. Even though I only care about the ordering of the images by their average rating, the biggest issue with this prediction distribution was that information about lower ratings disappeared.</p>
+
+<p><img src="/assets/sigmoid.png" alt="Predictions using sigmoid activation" /></p>
+
+<p>Thus I tried another approach of normalizing the labels into [-1,1] and using tanh activation function instead of sigmoid and then rescaling the predictions from [-1,1] to [min_average, max_average]. The rescaling part was not really necessary. The model was trained on 5000 images and these are the best photos among 2000 test images, batch size 128.</p>
+
+<h4 id="the-highest-rated-photos-according-to-my-model">The highest rated photos according to my model</h4>
+
+<p><img src="/assets/top2.png" alt="top2" width="30%" />
+true        5.180851
+predicted  10.000000</p>
+
+<p><img src="/assets/top3.png" alt="top3" width="30%" />
+true       5.492823
+predicted  9.762916</p>
+
+<p><img src="/assets/top5.png" alt="top5" width="30%" />
+true       6.714286
+predicted  9.706500</p>
+
+<p><img src="/assets/top4.png" alt="top4" width="30%" />
+true       5.157895
+predicted  9.704150</p>
+
+<p><img src="/assets/top1.png" alt="top1" width="30%" />
+true       5.185714
+predicted  9.648434</p>
+
+<h4 id="the-lowest-rated-photos-according-to-my-model">The lowest rated photos according to my model</h4>
+
+<p><img src="/assets/bad2.png" alt="bad2" width="30%" />
+true       4.073171
+predicted  0.040609</p>
+
+<p><img src="/assets/bad1.png" alt="bad1" width="30%" />
+true       4.854305
+predicted  0.034514</p>
+
+<p><img src="/assets/bad3.png" alt="bad3" width="30%" />
+true       3.855556
+predicted  0.051697</p>
+
+<p><img src="/assets/bad4.png" alt="bad4" width="30%" />
+true       6.456647
+predicted  0.050105</p>
+
+<p><img src="/assets/bad5.png" alt="bad5" width="30%" />
+true       4.627530
+predicted  0.057129</p>
+
+<h3 id="3-binary-classification">3. Binary classification</h3>
+
+<p>Since I was not really satisfied with the results, I decided to make the model as robust as possible and turned the problem into a binary classification task. Every image that had average rating above 5 was considered as beautiful and others as not beautiful. I used sigmoid activation. For replicating purposes, I mention that I added L2 regularization with <em>l = 0.1</em>. The training data size was 2000 images and batch size 64.</p>
+
+<p>We can see from the graph below that the model that I trained is overfitted on the training data and performs as well as majority voting on the validation dataset.</p>
+
+<p><img src="/assets/model-1559743073-binary_crossentropy-binary_accuracy-2000                -0.4-layers3-0.00030000000000000003-64-binary.png" alt="Loss history of binary classification" /></p>
+
+<p>Here are some examples of images, their true labels and predicted labels. Label 1 means beautiful, 0 means not beautiful.</p>
+
+<p><img src="/assets/boy.png" alt="Boy" width="40%" />
+True label: 0, predicted: 1</p>
+
+<p><img src="/assets/sunset.png" alt="Sunset" width="40%" />
+True label: 1, predicted: 1</p>
+
+<p><img src="/assets/cat.png" alt="Cat" width="40%" />
+True label: 0, predicted: 0</p>
+
+<p><img src="/assets/tree.png" alt="Tree" width="40%" />
+True label: 0, predicted: 0</p>
+
+<p>We can see that the conventionally beautiful sunset has been predicted as beautiful and other pictures are quite OK as well. However, it is always good to analyse the confusion matrix of a binary classifier. We can see from below, that the model is smarter than just majority voting, however it does get a larger proportion of positive examples correct.</p>
+
+<h4 id="confusion-matrix">Confusion matrix</h4>
+
+<table class="tablelines">
+  <thead>
+    <tr>
+      <th>true\predicted</th>
+      <th>0</th>
+      <th>1</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>0</td>
+      <td>94</td>
+      <td>154</td>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>97</td>
+      <td>455</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="additional-comments-about-what-i-also-tried-and-noticed">Additional comments about what I also tried and noticed</h2>
+
+<p>I tried normalizing over columns, such that count of each rating is considered independent and with regards to this ratings scale. I used sigmoid activation. For example, the if the count of ratings for rating 5 varies between 5 and 200, then 200 would be considered as 1 and 5 as 0 and the model would try to predict the rating amount in regard to the overall distribution of such rating. Afterwards, I rescaled the predictions with the maximum and minimum values from the training dataset, however the results were underwhelming, as the model predicted very low values for each rating.</p>
+
+<p>I noticed that the ratings have uneven distributions. For example, 1-s and 10-s are being given less frequently than 5-s, which is the most common rating. I also noticed that some beautiful photos have been given bad ratings just because they have been submitted to the wrong category. The AVA dataset contains ratings from different photo challenges, thus the ratings are also related to the photo’s fit with the category and not only about its general aesthetics.</p>
+
+<p>The dataset included some photos that were corrupt. There was a file with suggested training image id-s for small scale training and it contained id-s of images that were not present in the dataset, additionally there were some id-s in the ratings data file that were not included among images. I ignored such files. I chose the training images randomly, since the suggested image id-s had low integrity. The dataset was retrieved from academictorrents.com and this might be the reason why some of the images were missing or corrupt.</p>
+
+<h3 id="conclusions">Conclusions</h3>
+
+<p>Even though I was hoping to achieve better results, I believe that these methods can be further improved with additional hyperparameter tuning. In the future it would be very useful to use additional metadata about the photos, especially EXIF data.</p>
+
+<h2 id="references">References</h2>
+
+<div class="footnotes">
+  <ol>
+    <li id="fn:fn1">
+      <p><a href="http://www.cat.uab.cat/Public/Publications/2012/MMP2012/Murray2012.pdf">AVA: A Large-Scale Database for Aesthetic Visual Analysis</a> <a href="#fnref:fn1" class="reversefootnote">&#8617;</a></p>
+    </li>
+    <li id="fn:fn2">
+      <p><a href="https://arxiv.org/pdf/1709.05424.pdf">NIMA: Neural Image Assessment</a> <a href="#fnref:fn2" class="reversefootnote">&#8617;</a></p>
+    </li>
+  </ol>
+</div>
+
+
+        </section>
+
+        <footer>
+        
+          LauraRuusmann.github.io is maintained by <a href="https://github.com/LauraRuusmann">LauraRuusmann</a><br>
+        
+          This page was generated by <a href="https://pages.github.com">GitHub Pages</a>.
+        </footer>
+
+      </div>
+    </div>
+
+    
+  </body>
+</html>
